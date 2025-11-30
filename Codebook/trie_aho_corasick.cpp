@@ -3,7 +3,7 @@ using namespace std;
 // -------------------------
 // ===== Core Block ========
 // -------------------------
-const int K = 26 ;
+const int K = 26;
 struct Node
 {
     int next[K];
