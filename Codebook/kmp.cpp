@@ -1,0 +1,235 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// ==================== KMP ALGORITHM ====================
+struct KMP
+{
+    vector<int> lps; // Longest Prefix-Suffix array
+
+    void buildLPS(const string &pattern)
+    {
+        int n = pattern.size();
+        lps.assign(n, 0);
+        for (int i = 1, j = 0; i < n; i++)
+        {
+            while (j > 0 && pattern[i] != pattern[j])
+                j = lps[j - 1];
+            if (pattern[i] == pattern[j])
+                j++;
+            lps[i] = j;
+        }
+    }
+
+    vector<int> search(const string &text, const string &pattern)
+    {
+        buildLPS(pattern);
+        vector<int> matches;
+        int n = text.size(), m = pattern.size();
+        for (int i = 0, j = 0; i < n; i++)
+        {
+            while (j > 0 && text[i] != pattern[j])
+                j = lps[j - 1];
+            if (text[i] == pattern[j])
+                j++;
+            if (j == m)
+            {
+                matches.push_back(i - m + 1);
+                j = lps[j - 1];
+            }
+        }
+        return matches;
+    }
+
+    int count(const string &text, const string &pattern)
+    {
+        return (int)search(text, pattern).size();
+    }
+
+    int findFirst(const string &text, const string &pattern)
+    {
+        auto m = search(text, pattern);
+        return m.empty() ? -1 : m[0];
+    }
+
+    bool exists(const string &text, const string &pattern)
+    {
+        return findFirst(text, pattern) != -1;
+    }
+};
+
+// ==================== ADVANCED USES ====================
+struct AdvancedKMP
+{
+    vector<int> lps;
+
+    void buildLPS(const string &s)
+    {
+        int n = s.size();
+        lps.assign(n, 0);
+        for (int i = 1, j = 0; i < n; i++)
+        {
+            while (j > 0 && s[i] != s[j])
+                j = lps[j - 1];
+            if (s[i] == s[j])
+                j++;
+            lps[i] = j;
+        }
+    }
+
+    int shortestRepeatingPattern(const string &s)
+    {
+        buildLPS(s);
+        int n = s.size();
+        int len = lps[n - 1];
+        return (n % (n - len) == 0) ? (n - len) : n;
+    }
+
+    vector<int> countPrefixOccurrences(const string &s)
+    {
+        int n = s.size();
+        buildLPS(s);
+        vector<int> ans(n + 1, 0);
+        for (int i = 0; i < n; i++)
+            ans[lps[i]]++;
+        for (int i = n; i > 0; i--)
+            ans[lps[i - 1]] += ans[i];
+        for (int i = 0; i <= n; i++)
+            ans[i]++;
+        return ans;
+    }
+};
+
+// ==================== SUFFIX AUTOMATON (O(n)) ====================
+// Adds ability to count distinct substrings in O(n)
+struct SuffixAutomaton
+{
+    struct State
+    {
+        int len = 0;
+        int link = -1;
+        // use unordered_map to support full ASCII / any alphabet
+        unordered_map<char, int> next;
+    };
+
+    vector<State> st;
+    int last = 0;
+
+    SuffixAutomaton(int maxLen = 0)
+    {
+        st.reserve(2 * maxLen + 5);
+        st.push_back(State()); // initial state 0
+        last = 0;
+    }
+
+    void extend(char c)
+    {
+        int cur = (int)st.size();
+        st.push_back(State());
+        st[cur].len = st[last].len + 1;
+        int p = last;
+        while (p != -1 && !st[p].next.count(c))
+        {
+            st[p].next[c] = cur;
+            p = st[p].link;
+        }
+        if (p == -1)
+        {
+            st[cur].link = 0;
+        }
+        else
+        {
+            int q = st[p].next[c];
+            if (st[p].len + 1 == st[q].len)
+            {
+                st[cur].link = q;
+            }
+            else
+            {
+                int clone = (int)st.size();
+                st.push_back(st[q]); // clone q
+                st[clone].len = st[p].len + 1;
+                // redirect links that pointed to q and consumed c
+                while (p != -1 && st[p].next[c] == q)
+                {
+                    st[p].next[c] = clone;
+                    p = st[p].link;
+                }
+                st[q].link = st[cur].link = clone;
+            }
+        }
+        last = cur;
+    }
+
+    // Build SAM from string s
+    void build(const string &s)
+    {
+        st.clear();
+        st.push_back(State());
+        last = 0;
+        st.reserve(2 * s.size() + 5);
+        for (char c : s)
+            extend(c);
+    }
+
+    // Number of distinct substrings = sum(len[v] - len[link[v]]) over v != 0
+    long long countDistinctSubstrings() const
+    {
+        long long res = 0;
+        for (size_t v = 1; v < st.size(); ++v)
+        {
+            int linkLen = (st[v].link == -1 ? 0 : st[st[v].link].len);
+            res += (st[v].len - linkLen);
+        }
+        return res;
+    }
+};
+
+// ==================== QUICK USAGE EXAMPLES ====================
+int main()
+{
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string text, pattern;
+    if (!(cin >> text))
+        return 0;
+    if (!(cin >> pattern))
+        return 0;
+
+    KMP kmp;
+
+    // 1. Find all occurrences
+    auto positions = kmp.search(text, pattern);
+    cout << "Pattern found at positions: ";
+    for (int p : positions)
+        cout << p << " ";
+    cout << "\n";
+
+    // 2. Count occurrences
+    int cnt = kmp.count(text, pattern);
+    cout << "Total occurrences: " << cnt << "\n";
+
+    // 3. Check existence
+    if (kmp.exists(text, pattern))
+        cout << "Pattern exists in text\n";
+
+    // 4. First occurrence
+    int first = kmp.findFirst(text, pattern);
+    cout << "First occurrence at: " << first << "\n";
+
+    // 5. Advanced uses
+    AdvancedKMP akmp;
+    string s = "abcabcabc";
+    int len = akmp.shortestRepeatingPattern(s);
+    cout << "Shortest repeating pattern length: " << len << "\n";
+
+    auto prefixCount = akmp.countPrefixOccurrences("ababab");
+    cout << prefixCount[2] << " times\n";
+
+    // 6. Count distinct substrings using Suffix Automaton (O(n))
+    SuffixAutomaton sam((int)text.size());
+    sam.build(text);
+    cout << "Number of distinct substrings in text: " << sam.countDistinctSubstrings() << "\n";
+
+    return 0;
+}

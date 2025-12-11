@@ -1,0 +1,56 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+struct Manacher {
+    string s;
+    vector<int> d1,d2;
+    
+    Manacher(string str):s(str){
+        int n=s.size();
+        d1.resize(n); d2.resize(n);
+        for(int i=0,l=0,r=-1;i<n;i++){
+            int k=(i>r)?1:min(d1[l+r-i],r-i+1);
+            while(i-k>=0&&i+k<n&&s[i-k]==s[i+k])k++;
+            d1[i]=k--;
+            if(i+k>r)l=i-k,r=i+k;
+        }
+        for(int i=0,l=0,r=-1;i<n;i++){
+            int k=(i>r)?0:min(d2[l+r-i+1],r-i+1);
+            while(i-k-1>=0&&i+k<n&&s[i-k-1]==s[i+k])k++;
+            d2[i]=k--;
+            if(i+k>r)l=i-k-1,r=i+k;
+        }
+    }
+    
+    bool isPal(int l,int r){
+        int len=r-l+1;
+        if(len%2) return d1[(l+r)/2]>len/2;
+        return d2[r-len/2+1]>=len/2;
+    }
+    
+    string longest(){
+        int mx=0,t=0,c=0,n=s.size();
+        for(int i=0;i<n;i++){
+            if(2*d1[i]-1>mx) mx=2*d1[i]-1,t=1,c=i;
+            if(2*d2[i]>mx) mx=2*d2[i],t=2,c=i;
+        }
+        return t==1?s.substr(c-d1[c]+1,mx):s.substr(c-d2[c],mx);
+    }
+    
+    long long count(){
+        long long ans=0;
+        for(int x:d1)ans+=x;
+        for(int x:d2)ans+=x;
+        return ans;
+    }
+};
+
+// Usage
+int main(){
+    string s="racecar";
+    Manacher man(s);
+    cout<<man.isPal(0,6)<<endl;  // 1 (true)
+    cout<<man.longest()<<endl;   // racecar
+    cout<<man.count()<<endl;     // 16
+    return 0;
+}
