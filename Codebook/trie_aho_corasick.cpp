@@ -194,7 +194,33 @@ struct AhoCorasick
             mx = max(mx, t[v].sub);
         return mx;
     }
+    int countWordsUpToDepth(int maxDepth)
+    {
+        if (maxDepth < 0)
+            return 0;
+        int total = 0;
+        for (int d = 0; d <= min(maxDepth, (int)depthNodes.size() - 1); d++)
+        {
+            for (int v : depthNodes[d])
+            {
+                total += t[v].word;
+            }
+        }
+        return total;
+    }
 
+    // Count how many complete words end exactly at depth i
+    int countWordsAtDepth(int depth)
+    {
+        if (depth < 0 || depth >= depthNodes.size())
+            return 0;
+        int count = 0;
+        for (int v : depthNodes[depth])
+        {
+            count += t[v].word;
+        }
+        return count;
+    }
     vector<string> patternsWithPrefix(const string &prefix)
     {
         int v = 0;

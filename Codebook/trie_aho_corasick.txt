@@ -147,7 +147,377 @@ struct AhoCorasick {
         for(int v : depthNodes[depth]) mx = max(mx, t[v].sub);
         return mx;
     }
-    
+    #include <bits/stdc++.h>
+using namespace std;
+
+const int K = 26;
+
+struct AhoCorasick
+{
+    struct Node
+    {
+        int next[K], go[K], link = -1, parent = -1;
+        int word = 0, sub = 0, depth = 0;
+        char pch;
+        Node(int p = -1, char ch = '$') : parent(p), pch(ch)
+        {
+            fill(next, next + K, -1);
+            fill(go, go + K, -1);
+        }
+    };
+
+    vector<Node> t;
+    vector<vector<int>> depthNodes;
+    bool computed = false;
+
+    AhoCorasick() { clear(); }
+
+    void clear()
+    {
+        t.clear();
+        depthNodes.clear();
+        t.emplace_back(-1, '$');
+        t[0].link = 0;
+        depthNodes.resize(1);
+        depthNodes[0].push_back(0);
+        computed = false;
+    }
+
+    // Add pattern, returns node where pattern ends
+    int add(const string &s)
+    {
+        int v = 0;
+        for (char ch : s)
+        {
+            int c = ch - 'a';
+            if (t[v].next[c] == -1)
+            {
+                t[v].next[c] = t.size();
+                t.emplace_back(v, ch);
+                t.back().depth = t[v].depth + 1;
+                if (depthNodes.size() <= t.back().depth)
+                    depthNodes.resize(t.back().depth + 1);
+                depthNodes[t.back().depth].push_back(t[v].next[c]);
+            }
+            v = t[v].next[c];
+        }
+        t[v].word++;
+        computed = false;
+        return v;
+    }
+
+    void build()
+    {
+        queue<int> q;
+        t[0].link = 0;
+        for (int c = 0; c < K; c++)
+        {
+            if (t[0].next[c] != -1)
+            {
+                t[0].go[c] = t[0].next[c];
+                t[t[0].next[c]].link = 0;
+                q.push(t[0].next[c]);
+            }
+            else
+            {
+                t[0].go[c] = 0;
+            }
+        }
+        while (!q.empty())
+        {
+            int v = q.front();
+            q.pop();
+            for (int c = 0; c < K; c++)
+            {
+                if (t[v].next[c] != -1)
+                {
+                    int u = t[v].next[c];
+                    t[v].go[c] = u;
+                    t[u].link = t[t[v].link].go[c];
+                    q.push(u);
+                }
+                else
+                {
+                    t[v].go[c] = t[t[v].link].go[c];
+                }
+            }
+        }
+    }
+
+    void computeSubtree()
+    {
+        vector<int> order;
+        queue<int> q({0});
+        while (!q.empty())
+        {
+            int v = q.front();
+            q.pop();
+            order.push_back(v);
+            for (int c = 0; c < K; c++)
+                if (t[v].next[c] != -1)
+                    q.push(t[v].next[c]);
+        }
+        for (int i = order.size() - 1; i >= 0; i--)
+        {
+            int v = order[i];
+            t[v].sub = t[v].word;
+            for (int c = 0; c < K; c++)
+                if (t[v].next[c] != -1)
+                    t[v].sub += t[t[v].next[c]].sub;
+        }
+        computed = true;
+    }
+
+    // Pattern → Text
+    int countMatches(const string &text)
+    {
+        int v = 0, ans = 0;
+        for (char ch : text)
+        {
+            v = t[v].go[ch - 'a'];
+            for (int u = v; u; u = t[u].link)
+                ans += t[u].word;
+        }
+        return ans;
+    }
+
+    int countDistinctMatches(const string &text)
+    {
+        int v = 0, ans = 0;
+        vector<bool> vis(t.size(), false);
+        for (char ch : text)
+        {
+            v = t[v].go[ch - 'a'];
+            for (int u = v; u; u = t[u].link)
+            {
+                if (t[u].word && !vis[u])
+                {
+                    vis[u] = true;
+                    ans++;
+                }
+            }
+        }
+        return ans;
+    }
+
+    vector<pair<int, int>> findAllMatches(const string &text)
+    {
+        vector<pair<int, int>> res;
+        int v = 0;
+        for (int i = 0; i < text.size(); i++)
+        {
+            v = t[v].go[text[i] - 'a'];
+            for (int u = v; u; u = t[u].link)
+            {
+                if (t[u].word)
+                    res.push_back({u, i});
+            }
+        }
+        return res;
+    }
+
+    // Prefix queries
+    int countPrefixMatches(const string &prefix)
+    {
+        int v = 0;
+        for (char ch : prefix)
+        {
+            int c = ch - 'a';
+            if (t[v].next[c] == -1)
+                return 0;
+            v = t[v].next[c];
+        }
+        if (!computed)
+            computeSubtree();
+        return t[v].sub;
+    }
+
+    int maxPrefixAtDepth(int depth)
+    {
+        if (!computed)
+            computeSubtree();
+        if (depth < 0 || depth >= depthNodes.size())
+            return 0;
+        int mx = 0;
+        for (int v : depthNodes[depth])
+            mx = max(mx, t[v].sub);
+        return mx;
+    }
+    int countWordsUpToDepth(int maxDepth)
+    {
+        if (maxDepth < 0)
+            return 0;
+        int total = 0;
+        for (int d = 0; d <= min(maxDepth, (int)depthNodes.size() - 1); d++)
+        {
+            for (int v : depthNodes[d])
+            {
+                total += t[v].word;
+            }
+        }
+        return total;
+    }
+
+    // Count how many complete words end exactly at depth i
+    int countWordsAtDepth(int depth)
+    {
+        if (depth < 0 || depth >= depthNodes.size())
+            return 0;
+        int count = 0;
+        for (int v : depthNodes[depth])
+        {
+            count += t[v].word;
+        }
+        return count;
+    }
+    vector<string> patternsWithPrefix(const string &prefix)
+    {
+        int v = 0;
+        for (char ch : prefix)
+        {
+            int c = ch - 'a';
+            if (t[v].next[c] == -1)
+                return {};
+            v = t[v].next[c];
+        }
+        vector<string> res;
+        stack<pair<int, string>> st;
+        st.push({v, prefix});
+        while (!st.empty())
+        {
+            auto [node, cur] = st.top();
+            st.pop();
+            if (t[node].word)
+                res.push_back(cur);
+            for (int c = 0; c < K; c++)
+                if (t[node].next[c] != -1)
+                    st.push({t[node].next[c], cur + char('a' + c)});
+        }
+        return res;
+    }
+
+    // Trie operations
+    bool contains(const string &s)
+    {
+        int v = 0;
+        for (char ch : s)
+        {
+            int c = ch - 'a';
+            if (t[v].next[c] == -1)
+                return false;
+            v = t[v].next[c];
+        }
+        return t[v].word > 0;
+    }
+
+    bool hasPrefix(const string &prefix)
+    {
+        int v = 0;
+        for (char ch : prefix)
+        {
+            int c = ch - 'a';
+            if (t[v].next[c] == -1)
+                return false;
+            v = t[v].next[c];
+        }
+        return true;
+    }
+
+    string longestPrefix(const string &s)
+    {
+        int v = 0, last = 0;
+        for (int i = 0; i < s.size(); i++)
+        {
+            int c = s[i] - 'a';
+            if (t[v].next[c] == -1)
+                break;
+            v = t[v].next[c];
+            if (t[v].word)
+                last = i + 1;
+        }
+        return s.substr(0, last);
+    }
+
+    // Statistics
+    int totalPatterns()
+    {
+        int ans = 0;
+        for (auto &node : t)
+            ans += node.word;
+        return ans;
+    }
+
+    int distinctPatterns()
+    {
+        int ans = 0;
+        for (auto &node : t)
+            if (node.word)
+                ans++;
+        return ans;
+    }
+
+    int size() { return t.size(); }
+};
+
+// ==================== TEST ====================
+int main()
+{
+    AhoCorasick ac;
+
+    // Add patterns
+    ac.add("abc");
+    ac.add("ab");
+    ac.add("bc");
+    ac.add("c");
+    ac.build();
+
+    // Test 1: Pattern matching
+    string text = "abc";
+    cout << "Text: " << text << endl;
+    cout << "Total matches: " << ac.countMatches(text) << endl;
+    cout << "Distinct matches: " << ac.countDistinctMatches(text) << endl;
+
+    // Test 2: Prefix queries (need subtree counts)
+    ac.computeSubtree();
+    cout << "\nPrefix 'ab' count: " << ac.countPrefixMatches("ab") << endl;
+    cout << "Max at depth 2: " << ac.maxPrefixAtDepth(2) << endl;
+
+    // Test 3: Trie operations
+    cout << "\nContains 'abc': " << ac.contains("abc") << endl;
+    cout << "Has prefix 'ab': " << ac.hasPrefix("ab") << endl;
+    cout << "Longest prefix of 'abcd': " << ac.longestPrefix("abcd") << endl;
+
+    // Test 4: Get all patterns with prefix
+    auto patterns = ac.patternsWithPrefix("a");
+    cout << "Patterns with prefix 'a': ";
+    for (auto &p : patterns)
+        cout << p << " ";
+    cout << endl;
+
+    // Test 5: Suffix queries (reverse approach)
+    AhoCorasick suffix;
+    vector<string> pats = {"cat", "at", "rat"};
+    for (auto &p : pats)
+    {
+        string rev = p;
+        reverse(rev.begin(), rev.end());
+        suffix.add(rev);
+    }
+    suffix.build();
+    suffix.computeSubtree();
+
+    string query = "the cat sat on mat";
+    string revQuery = query;
+    reverse(revQuery.begin(), revQuery.end());
+    cout << "\nSuffix matches in query: " << suffix.countPrefixMatches(revQuery) << endl;
+
+    // Test 6: Statistics
+    cout << "\nTotal patterns: " << ac.totalPatterns() << endl;
+    cout << "Distinct patterns: " << ac.distinctPatterns() << endl;
+    cout << "Automaton size: " << ac.size() << endl;
+
+    return 0;
+}
     vector<string> patternsWithPrefix(const string& prefix) {
         int v = 0;
         for(char ch : prefix) {
